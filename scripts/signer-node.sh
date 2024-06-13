@@ -28,6 +28,7 @@ $GETH_CMD \
     --unlock $address \
     --password $ROOT/password \
     --mine \
+    --miner.etherbase ${address} \
     < /dev/null > $log_file 2>&1
 
 if test $? -ne 0; then

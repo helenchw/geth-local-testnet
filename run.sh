@@ -3,6 +3,8 @@
 source ./scripts/util.sh
 set -u +e
 
+start_over=1
+
 if ! test $(uname -s) = "Linux"; then
     echo "Only Linux is supported"
 fi
@@ -15,8 +17,10 @@ check_cmd() {
 }
 
 if test -e $ROOT; then
-    echo "The file $ROOT already exists, please delete or move it first."
-    exit 1
+    #echo "The file $ROOT already exists, please delete or move it first."
+    #exit 1
+    echo "The file $ROOT already exists, reuse the existing blockchain"
+    start_over=0
 fi
 
 check_cmd geth "See https://geth.ethereum.org/docs/getting-started/installing-geth for more detail."
@@ -33,27 +37,30 @@ cleanup() {
         kill $pids 2>/dev/null
         sleep 1
     done
-    while test -e $ROOT; do
-        rm -rf $ROOT 2>/dev/null
-        sleep 1
-    done
-    echo "Deleted the data directory"
+    #while test -e $ROOT; do
+    #    rm -rf $ROOT 2>/dev/null
+    #    sleep 1
+    #done
+    #echo "Deleted the data directory"
 }
 
 trap cleanup EXIT
 
 mkdir -p $ROOT
 
-# Run everything needed to generate $BUILD_DIR
-if ! ./scripts/build.sh; then
-    echo -e "\n*Failed!* in the build step\n"
-    exit 1
+if [ $start_over -eq 1 ]; then
+   # Run everything needed to generate $BUILD_DIR
+   if ! ./scripts/build.sh; then
+       echo -e "\n*Failed!* in the build step\n"
+       exit 1
+   fi
+   
+   if ! ./scripts/prepare-el.sh; then
+       echo -e "\n*Failed!* in the execution layer preparation step\n"
+       exit 1
+   fi
 fi
 
-if ! ./scripts/prepare-el.sh; then
-    echo -e "\n*Failed!* in the execution layer preparation step\n"
-    exit 1
-fi
 ./scripts/el-bootnode.sh &
 bootnode_pid=$!
 
@@ -80,10 +87,13 @@ while ! test -S $SIGNER_EL_DATADIR/geth.ipc; do
     sleep 1
 done
 
-if ! ./scripts/prepare-cl.sh; then
-    echo -e "\n*Failed!* in the consensus layer preparation step\n"
-    exit 1
+if [ $start_over -eq 1 ]; then
+  if ! ./scripts/prepare-cl.sh; then
+      echo -e "\n*Failed!* in the consensus layer preparation step\n"
+      exit 1
+  fi
 fi
+
 ./scripts/cl-bootnode.sh &
 
 for (( node=1; node<=$NODE_COUNT; node++ )); do

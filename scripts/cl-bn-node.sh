@@ -13,7 +13,7 @@ index=$1
 
 cl_data_dir $index
 datadir=$cl_data_dir
-port=$(expr $BASE_CL_PORT + $index)
+port=$(expr $BASE_CL_PORT + $index + $index)
 http_port=$(expr $BASE_CL_HTTP_PORT + $index)
 log_file=$datadir/beacon_node.log
 
@@ -30,7 +30,7 @@ $LIGHTHOUSE_CMD beacon_node \
 	--staking \
 	--enr-address 127.0.0.1 \
 	--enr-udp-port $port \
-	--enr-tcp-port $port \
+	--enr-tcp-port $(expr $port + 1) \
 	--port $port \
     --http \
 	--http-port $http_port \

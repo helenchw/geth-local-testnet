@@ -8,13 +8,19 @@ their own network.
 In order to do so, we try to write as little code as possible and use only bash scripts to run only well-known softwares. In addition, we use some
 JavaScript and web3.js so that we can easily manage JSON objects and interact with the Ethereum nodes.
 
+## Test Environment
+
+- Operating System: Ubuntu 22.04.2 LTS (64-bit) Server
+- Geth: v1.13.15
+- Lighthouse: v5.1.3
+
 ## Install Dependencies
 You can follow the follwing instructions to install the dependencies. You can omit some instructions if you prefer to install them in other ways.
 ```bash
-# Install geth and bootnode
-sudo add-apt-repository -y ppa:ethereum/ethereum
-sudo apt-get update
-sudo apt-get install -y ethereum
+# Install geth and bootnode of version 1.13.15
+wget https://gethstore.blob.core.windows.net/builds/geth-alltools-linux-amd64-1.13.15-c5ba367e.tar.gz
+tar xf geth-alltools-linux-amd64-1.13.15-c5ba367e.tar.gz
+cp -r geth-alltools-linux-amd64-1.13.15-c5ba367e/{geth,bootnode} /usr/local/bin
 
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -24,7 +30,7 @@ source "$HOME/.cargo/env"
 sudo apt-get install -y git gcc g++ make cmake pkg-config llvm-dev libclang-dev clang protobuf-compiler
 git clone https://github.com/sigp/lighthouse.git
 cd lighthouse
-git checkout stable
+git checkout v5.1.3
 make
 make install-lcli
 
@@ -41,7 +47,7 @@ git clone https://github.com/ppopth/local-testnet.git
 cd local-testnet
 ./run.sh
 ```
-By default, the number of nodes will be 4 and the number of validators will be 80. You can change them by setting the environment variables.
+By default, the number of nodes will be 4 and the number of validators will be 7. You can change them by setting the environment variables.
 ```bash
 NODE_COUNT=2 VALIDATOR_COUNT=10 ./run.sh
 ```
@@ -168,3 +174,12 @@ After the transaction:
 0x7CC1c30f38606C767d6F930Ef82E51571Da15015 has 499999999999706000000000000
 0x1f7702a321566a68Cd6edD20b55f7Fe8641c8344 has 1500000000000000000000000000
 ```
+
+## Changes w.r.t. the upstream
+
+- Only initialize the network when the data directory `data/` does not exist
+- Use a separate port number for TCP for Lighthouse consensus nodes
+- Expose the HTTP API endpoint for Geth execution nodes (7600 + index)
+- Specify `--miner.etherbase` for the Geth signer node
+- Add some time wait for deposit contract deployment to complete
+- Reduce the validator count to 7
