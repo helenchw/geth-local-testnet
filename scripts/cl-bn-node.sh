@@ -24,16 +24,17 @@ echo "Started the lighthouse beacon node #$index which is now listening at port 
 $LIGHTHOUSE_CMD beacon_node \
     --datadir $datadir \
 	--testnet-dir $CONSENSUS_DIR \
-    --execution-endpoint http://localhost:$(expr $BASE_EL_RPC_PORT + $index) \
+    --execution-endpoint http://${MY_NODE_IP}:$(expr $BASE_EL_RPC_PORT + $index) \
     --execution-jwt $datadir/jwtsecret \
 	--enable-private-discovery \
 	--staking \
-	--enr-address 127.0.0.1 \
+    --enr-address ${MY_NODE_IP} \
 	--enr-udp-port $port \
 	--enr-tcp-port $(expr $port + 1) \
 	--port $port \
     --http \
 	--http-port $http_port \
+    --http-address 0.0.0.0 \
 	--disable-packet-filter \
     < /dev/null > $log_file 2>&1
 

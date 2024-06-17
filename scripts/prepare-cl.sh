@@ -70,7 +70,7 @@ echo "Generated $CONSENSUS_DIR/genesis.ssz"
 
 lcli \
 	generate-bootnode-enr \
-	--ip 127.0.0.1 \
+	--ip ${MY_NODE_IP} \
 	--udp-port $CL_BOOTNODE_PORT \
 	--tcp-port $CL_BOOTNODE_PORT \
 	--genesis-fork-version $GENESIS_FORK_VERSION \

@@ -23,6 +23,8 @@ log_file=$datadir/geth.log
 echo "Started the geth node #$index which is now listening at port $port and rpc at port $rpc_port. You can see the log at $log_file"
 $GETH_CMD \
     --datadir $datadir \
+    --authrpc.addr $MY_NODE_IP \
+    --authrpc.vhosts '*' \
     --authrpc.port $rpc_port \
     --port $port \
     --bootnodes $boot_enode \
@@ -33,6 +35,7 @@ $GETH_CMD \
     --http \
     --http.port ${http_port} \
     --http.addr 0.0.0.0 \
+    --nat extip:${MY_NODE_IP} \
     < /dev/null > $log_file 2>&1
 
 if test $? -ne 0; then

@@ -17,7 +17,7 @@ echo "Started the lighthouse bootnode which is now listening at port $CL_BOOTNOD
 $LIGHTHOUSE_CMD boot_node \
     --testnet-dir $CONSENSUS_DIR \
     --port $CL_BOOTNODE_PORT \
-    --listen-address 127.0.0.1 \
+    --listen-address ${MY_NODE_IP} \
 	--disable-packet-filter \
     --network-dir $CL_BOOTNODE_DIR \
     < /dev/null > $CL_BOOT_LOG_FILE 2>&1

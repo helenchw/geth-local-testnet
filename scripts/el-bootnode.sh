@@ -14,7 +14,7 @@ bootnode_port=30305
 echo "Started the geth bootnode which is now listening at :$bootnode_port"
 bootnode \
     -nodekey $EL_BOOT_KEY_FILE \
-    -addr :$bootnode_port \
+    -addr ${MY_NODE_IP}:$bootnode_port \
     < /dev/null > $EL_BOOT_LOG_FILE 2>&1
 
 if test $? -ne 0; then
