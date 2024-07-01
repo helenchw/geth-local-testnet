@@ -28,6 +28,7 @@ docker run -d \
     -p $port:$port/tcp \
     -p $http_port:$http_port \
     -p $rpc_port:$rpc_port \
+    ${COMMON_NODE_CONTAINER_OPTIONS} \
     --name $container_name \
     ${GETH_IMAGE}:${GETH_IMAGE_TAG} \
     ${GETH_CMD} \

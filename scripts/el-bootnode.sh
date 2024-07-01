@@ -21,6 +21,7 @@ docker run -d \
     -p ${bootnode_port}:${bootnode_port}/udp \
     -p ${bootnode_port}:${bootnode_port}/tcp \
     -p 8545:8545 \
+    ${COMMON_NODE_CONTAINER_OPTIONS} \
     --name $container_name \
     ${GETH_IMAGE}:${GETH_IMAGE_TAG} \
     ${GETH_BOOTNODE_CMD} \

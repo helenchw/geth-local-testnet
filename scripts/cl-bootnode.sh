@@ -25,6 +25,7 @@ docker run -d \
     -p $CL_BOOTNODE_PORT:$CL_BOOTNODE_PORT/tcp \
     -p 9000:9000/udp \
     -p 9000:9000/tcp \
+    ${COMMON_NODE_CONTAINER_OPTIONS} \
     --name $container_name \
     ${LIGHTHOUSE_IMAGE}:${LIGHTHOUSE_IMAGE_TAG} \
     ${LIGHTHOUSE_CMD} boot_node \

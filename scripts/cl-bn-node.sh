@@ -33,6 +33,7 @@ docker run -d \
     -p $tcp_port:$tcp_port/udp \
     -p $tcp_port:$tcp_port \
     -p $http_port:$http_port \
+    ${COMMON_NODE_CONTAINER_OPTIONS} \
     --name ${container_name} \
     --network host \
     ${LIGHTHOUSE_IMAGE}:${LIGHTHOUSE_IMAGE_TAG} \

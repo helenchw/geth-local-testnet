@@ -28,7 +28,7 @@ You can follow the follwing instructions to install the dependencies. You can om
 ```bash
 # Install Docker 23.0
 curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+sudo sh get-docker.sh --version 26.1.4
 ```
 
 ## Run the network
@@ -173,3 +173,5 @@ After the transaction:
 - Specify `--miner.etherbase` for the Geth signer node
 - Add some time wait for deposit contract deployment to complete
 - Reduce the validator count to 7
+- Change to use Docker images for all dependent software (Geth, Lighthouse, jq, node, npm)
+- Use `--logfile` flags for Geth and Lighthouse for continued logging across restarts

@@ -23,6 +23,7 @@ docker run -d \
     -u ${BLOCKCHAIN_USER} \
     -v $datadir:${DATA_DIR_MOUNT_PATH} \
     -v $CONSENSUS_DIR:${CONSENSUS_DIR_MOUNT_PATH} \
+    ${COMMON_NODE_CONTAINER_OPTIONS} \
     --name ${container_name} \
     ${LIGHTHOUSE_IMAGE}:${LIGHTHOUSE_IMAGE_TAG} \
     $LIGHTHOUSE_CMD validator_client \
