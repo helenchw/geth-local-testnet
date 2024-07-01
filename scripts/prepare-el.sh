@@ -9,8 +9,11 @@ new_account() {
     local node=$1
     local datadir=$2
 
+    # Create the directory as the blockchain user for Docker containers to mount (and avoid permission conflicts)
+    mkdir -p $datadir
     # Generate a new account for each geth node
-    address=$($GETH_CMD --datadir $datadir account new --password $ROOT/password 2>/dev/null | grep -o "0x[0-9a-fA-F]*")
+    output=$(docker run --rm -u $BLOCKCHAIN_USER -v $datadir:${DATA_DIR_MOUNT_PATH} -v $ROOT/password:/password ${GETH_IMAGE}:${GETH_IMAGE_TAG} $GETH_CMD --datadir ${DATA_DIR_MOUNT_PATH} account new --password /password)
+    address=$(echo $output | grep -o "0x[0-9a-fA-F]*")
     echo "Generated an account with address $address for geth node $node and saved it at $datadir"
     echo $address > $datadir/address
 
@@ -50,13 +53,27 @@ for (( node=1; node<=$NODE_COUNT; node++ )); do
     el_data_dir $node
     datadir=$el_data_dir
 
-    $GETH_CMD init --datadir $datadir $GENESIS_FILE 2>/dev/null
+    docker run --rm \
+        -u $BLOCKCHAIN_USER \
+        -v $datadir:${DATA_DIR_MOUNT_PATH} \
+        -v $GENESIS_FILE:/genesis.json \
+        ${GETH_IMAGE}:${GETH_IMAGE_TAG} \
+        $GETH_CMD init --datadir ${DATA_DIR_MOUNT_PATH} /genesis.json
     echo "Initialized the data directory $datadir with $GENESIS_FILE"
 done
 
-$GETH_CMD init --datadir $SIGNER_EL_DATADIR $GENESIS_FILE 2>/dev/null
+docker run --rm \
+        -u $BLOCKCHAIN_USER \
+        -v $SIGNER_EL_DATADIR:${DATA_DIR_MOUNT_PATH} \
+        -v $GENESIS_FILE:/genesis.json \
+        ${GETH_IMAGE}:${GETH_IMAGE_TAG} \
+        $GETH_CMD init --datadir ${DATA_DIR_MOUNT_PATH} /genesis.json
 echo "Initialized the data directory $SIGNER_EL_DATADIR with $GENESIS_FILE"
 
 # Generate the boot node key
-bootnode -genkey $EL_BOOT_KEY_FILE
+docker run --rm \
+    -u $BLOCKCHAIN_USER \
+    -v $EXECUTION_DIR:${DATA_DIR_MOUNT_PATH} \
+    ${GETH_IMAGE}:${GETH_IMAGE_TAG} \
+    bootnode -genkey ${DATA_DIR_MOUNT_PATH}/boot.key
 echo "Generated $EL_BOOT_KEY_FILE"

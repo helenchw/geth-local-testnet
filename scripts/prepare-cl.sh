@@ -61,20 +61,28 @@ echo "SECONDS_PER_ETH1_BLOCK: \"$SECONDS_PER_ETH1_BLOCK\"" >> $CONFIG_FILE
 
 echo "Generated $CONFIG_FILE"
 
-lcli eth1-genesis \
+docker run --rm \
+    -u $BLOCKCHAIN_USER \
+    -v $CONSENSUS_DIR:${CONSENSUS_DIR_MOUNT_PATH} \
+    ${LIGHTHOUSE_CLI_IMAGE}:${LIGHTHOUSE_CLI_IMAGE_TAG} \
+    lcli eth1-genesis \
     --spec $PRESET_BASE \
-    --eth1-endpoints http://localhost:$SIGNER_HTTP_PORT \
-    --testnet-dir $CONSENSUS_DIR 2>/dev/null
+    --eth1-endpoints http://${MY_NODE_IP}:$SIGNER_HTTP_PORT \
+    --testnet-dir ${CONSENSUS_DIR_MOUNT_PATH}
 
 echo "Generated $CONSENSUS_DIR/genesis.ssz"
 
-lcli \
+docker run --rm \
+    -u $BLOCKCHAIN_USER \
+    -v $CONSENSUS_DIR:${CONSENSUS_DIR_MOUNT_PATH} \
+    ${LIGHTHOUSE_CLI_IMAGE}:${LIGHTHOUSE_CLI_IMAGE_TAG} \
+    lcli \
 	generate-bootnode-enr \
 	--ip ${MY_NODE_IP} \
 	--udp-port $CL_BOOTNODE_PORT \
 	--tcp-port $CL_BOOTNODE_PORT \
 	--genesis-fork-version $GENESIS_FORK_VERSION \
-	--output-dir $CL_BOOTNODE_DIR
+	--output-dir ${CONSENSUS_DIR_MOUNT_PATH}/bootnode
 
 bootnode_enr=$(cat $CL_BOOTNODE_DIR/enr.dat)
 echo "- $bootnode_enr" > $CONSENSUS_DIR/boot_enr.yaml
@@ -86,13 +94,19 @@ for (( node=1; node<=$NODE_COUNT; node++ )); do
     el_data_dir $node
     mkdir -p $cl_data_dir
     cp $el_data_dir/geth/jwtsecret $cl_data_dir
-    $LIGHTHOUSE_CMD \
-        --testnet-dir $CONSENSUS_DIR \
+    docker run --rm \
+        -u ${BLOCKCHAIN_USER} \
+        -v $ROOT/password:/password \
+        -v $CONSENSUS_DIR:${CONSENSUS_DIR_MOUNT_PATH} \
+        -v $cl_data_dir:${DATA_DIR_MOUNT_PATH} \
+        ${LIGHTHOUSE_IMAGE}:${LIGHTHOUSE_IMAGE_TAG} \
+        $LIGHTHOUSE_CMD \
         account validator import \
-        --directory $CONSENSUS_DIR/validator_keys/node$node \
-        --datadir $cl_data_dir \
-        --password-file $ROOT/password \
-        --reuse-password 2>/dev/null
+        --testnet-dir ${CONSENSUS_DIR_MOUNT_PATH} \
+        --directory ${CONSENSUS_DIR_MOUNT_PATH}/validator_keys/node$node \
+        --datadir ${DATA_DIR_MOUNT_PATH} \
+        --password-file /password \
+        --reuse-password
     echo -n "."
 done
 echo -e "\nDone importing the keystores"

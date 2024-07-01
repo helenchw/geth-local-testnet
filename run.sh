@@ -9,6 +9,11 @@ if ! test $(uname -s) = "Linux"; then
     echo "Only Linux is supported"
 fi
 
+if ! command -v docker >/dev/null; then
+    echo -e "\nPlease install the latest stable version of Docker engine first.\n\n"
+    exit 1
+fi
+
 check_cmd() {
     if ! command -v $1 >/dev/null; then
         echo -e "\nCommand '$1' not found, please install it first.\n\n$2\n"
@@ -23,12 +28,8 @@ if test -e $ROOT; then
     start_over=0
 fi
 
-check_cmd geth "See https://geth.ethereum.org/docs/getting-started/installing-geth for more detail."
-check_cmd bootnode "See https://geth.ethereum.org/docs/getting-started/installing-geth for more detail."
-check_cmd lighthouse "See https://lighthouse-book.sigmaprime.io/installation.html for more detail."
-check_cmd lcli "See https://lighthouse-book.sigmaprime.io/installation-source.html and run \"make install-lcli\"."
-check_cmd npm "See https://nodejs.org/en/download/ for more detail."
-check_cmd node "See https://nodejs.org/en/download/ for more detail."
+#check_cmd npm "See https://nodejs.org/en/download/ for more detail."
+#check_cmd node "See https://nodejs.org/en/download/ for more detail."
 
 cleanup() {
     echo "Shutting down"
@@ -37,6 +38,26 @@ cleanup() {
         kill $pids 2>/dev/null
         sleep 1
     done
+
+    #docker ps -a
+
+    docker rm -f ${EL_BOOTNODE_CONTAINER_NAME} \
+            ${CL_BOOTNODE_CONTAINER_NAME} \
+            ${SIGNER_NODE_CONTAIN_NAME}
+
+    for (( node=1; node<=$NODE_COUNT; node++ )); do
+        el_node_container_name $node
+        docker rm -f $container_name
+    done
+    for (( node=1; node<=$NODE_COUNT; node++ )); do
+        cl_bn_container_name $node
+        docker rm -f $container_name
+    done
+    for (( node=1; node<=$NODE_COUNT; node++ )); do
+        cl_vc_container_name $node
+        docker rm -f $container_name
+    done
+
     #while test -e $ROOT; do
     #    rm -rf $ROOT 2>/dev/null
     #    sleep 1
@@ -46,9 +67,10 @@ cleanup() {
 
 trap cleanup EXIT
 
-mkdir -p $ROOT
 
 if [ $start_over -eq 1 ]; then
+   mkdir -p $ROOT
+
    # Run everything needed to generate $BUILD_DIR
    if ! ./scripts/build.sh; then
        echo -e "\n*Failed!* in the build step\n"
@@ -61,24 +83,30 @@ if [ $start_over -eq 1 ]; then
    fi
 fi
 
+echo -e "\n> Prepare the execution layer boot node"
+
 ./scripts/el-bootnode.sh &
-bootnode_pid=$!
 
 # Keep reading until we can parse the boot enode
+echo -en "\n>> Extracting the ENR URL from the execution layer boot node log"
 while true; do
-    if ! ps p $bootnode_pid >/dev/null; then
-        exit 1
-    fi
-    boot_enode="$(cat $EL_BOOT_LOG_FILE 2>/dev/null | grep -o "enode:.*$" || true)"
+    echo -en "."
+    boot_enode="$(docker logs ${EL_BOOTNODE_CONTAINER_NAME} 2>/dev/null | grep -o "enode:.*$" || true)"
     if ! test -z "$boot_enode"; then
+        boot_enode=$(echo ${boot_enode} | sed -e "s/127.0.0.1/${MY_NODE_IP}/")
+        echo -e "\n>> ENR extracted: ${boot_enode}"
         break
     fi
     sleep 1
 done
 
+echo -e "> Prepare the execution layer worker nodes"
+
 for (( node=1; node<=$NODE_COUNT; node++ )); do
     ./scripts/el-node.sh $node $boot_enode &
 done
+
+echo -e "> Prepare the execution layer signer node"
 
 ./scripts/signer-node.sh $SIGNER_EL_DATADIR $boot_enode &
 
@@ -100,5 +128,7 @@ for (( node=1; node<=$NODE_COUNT; node++ )); do
     ./scripts/cl-bn-node.sh $node &
     ./scripts/cl-vc-node.sh $node &
 done
+
+echo -e "\nStarting on $(date)..."
 
 wait -n
