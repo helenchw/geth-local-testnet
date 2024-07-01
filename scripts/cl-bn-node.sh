@@ -23,6 +23,7 @@ echo "Started the lighthouse beacon node #$index which is now listening at ports
 
 # --disable-packet-filter is necessary because it's involed in rate limiting and nodes per IP limit
 # See https://github.com/sigp/discv5/blob/v0.1.0/src/socket/filter/mod.rs#L149-L186
+# TODO: We are directly exposing the host network to the container with '--network host'. Is it possible to run without this option?
 docker run -d \
     -u ${BLOCKCHAIN_USER} \
     -v $datadir:${DATA_DIR_MOUNT_PATH} \
@@ -33,6 +34,7 @@ docker run -d \
     -p $tcp_port:$tcp_port \
     -p $http_port:$http_port \
     --name ${container_name} \
+    --network host \
     ${LIGHTHOUSE_IMAGE}:${LIGHTHOUSE_IMAGE_TAG} \
     $LIGHTHOUSE_CMD beacon_node \
     --datadir ${DATA_DIR_MOUNT_PATH} \

@@ -28,9 +28,6 @@ if test -e $ROOT; then
     start_over=0
 fi
 
-#check_cmd npm "See https://nodejs.org/en/download/ for more detail."
-#check_cmd node "See https://nodejs.org/en/download/ for more detail."
-
 cleanup() {
     echo "Shutting down"
     pids=$(jobs -p)

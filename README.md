@@ -11,34 +11,24 @@ JavaScript and web3.js so that we can easily manage JSON objects and interact wi
 ## Test Environment
 
 - Operating System: Ubuntu 22.04.2 LTS (64-bit) Server
+- Docker: v26.1.4
+  
+The scripts uses packaged Docker images with the following software:
+
 - Geth: v1.13.15
 - Lighthouse: v5.1.3
+- Node: v22.0
+- JQ: latest
+
+Their versions are configurable in the file `var.env`.
 
 ## Install Dependencies
 You can follow the follwing instructions to install the dependencies. You can omit some instructions if you prefer to install them in other ways.
+
 ```bash
-# Install geth and bootnode of version 1.13.15
-wget https://gethstore.blob.core.windows.net/builds/geth-alltools-linux-amd64-1.13.15-c5ba367e.tar.gz
-tar xf geth-alltools-linux-amd64-1.13.15-c5ba367e.tar.gz
-cp -r geth-alltools-linux-amd64-1.13.15-c5ba367e/{geth,bootnode} /usr/local/bin
-
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-source "$HOME/.cargo/env"
-
-# Install lighthouse and lcli
-sudo apt-get install -y git gcc g++ make cmake pkg-config llvm-dev libclang-dev clang protobuf-compiler
-git clone https://github.com/sigp/lighthouse.git
-cd lighthouse
-git checkout v5.1.3
-make
-make install-lcli
-
-# Install Node.js
-sudo apt-get install -y nodejs npm
-
-# Install jq
-sudo apt-get install -y jq
+# Install Docker 23.0
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
 ```
 
 ## Run the network

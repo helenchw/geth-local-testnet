@@ -7,7 +7,7 @@ mkdir -p $CONSENSUS_DIR
 
 if ! test -e ./web3/node_modules; then
     echo "The package ./web3 doesn't have node modules installed yet. Installing the node modules now"
-    npm --prefix ./web3 install >/dev/null 2>/dev/null
+    docker run --rm -u ${BLOCKCHAIN_USER} -v ./web3:${WEB3_DIR_MOUNT_PATH} ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} npm --prefix ${WEB3_DIR_MOUNT_PATH} install >/dev/null 2>/dev/null
     echo "Node modules are already installed"
 fi
 
@@ -15,7 +15,7 @@ fi
 sleep 2
 
 # Use the signing node as a node to deploy the deposit contract
-output=$(NODE_PATH=./web3/node_modules node ./web3/src/deploy-deposit-contract.js --endpoint $SIGNER_EL_DATADIR/geth.ipc)
+output=$(docker run --rm -u ${BLOCKCHAIN_USER} -v ./web3:${WEB3_DIR_MOUNT_PATH} -v $SIGNER_EL_DATADIR:${DATA_DIR_MOUNT_PATH} -v ./assets:/assets -w / -e NODE_PATH=${WEB3_DIR_MOUNT_PATH}/node_modules ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} node ${WEB3_DIR_MOUNT_PATH}/src/deploy-deposit-contract.js --endpoint ${DATA_DIR_MOUNT_PATH}/geth.ipc)
 address=$(echo "$output" | grep "address" | cut -d ' ' -f 2)
 transaction=$(echo "$output" | grep "transaction" | cut -d ' ' -f 2)
 block_number=$(echo "$output" | grep "block_number" | cut -d ' ' -f 2)
@@ -30,18 +30,34 @@ echo $block_number > $CONSENSUS_DIR/deploy_block.txt
 
 # Select the validator
 mkdir -p $CONSENSUS_DIR/validator_keys
-NODE_PATH=./web3/node_modules node ./web3/src/distribute-validators.js \
+docker run --rm \
+    -u ${BLOCKCHAIN_USER} \
+    -v ./web3:${WEB3_DIR_MOUNT_PATH} \
+    -v $CONSENSUS_DIR:$CONSENSUS_DIR_MOUNT_PATH \
+    -v $BUILD_DIR:${BUILD_DIR_MOUNT_PATH} \
+    -e NODE_PATH=${WEB3_DIR_MOUNT_PATH}/node_modules \
+    ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} \
+    node ${WEB3_DIR_MOUNT_PATH}/src/distribute-validators.js \
     --nc $NODE_COUNT \
     --vc $VALIDATOR_COUNT \
-    -d $BUILD_DIR/validator_keys \
-    -o $CONSENSUS_DIR/validator_keys \
+    -d ${BUILD_DIR_MOUNT_PATH}/validator_keys \
+    -o ${CONSENSUS_DIR_MOUNT_PATH}/validator_keys \
     > $ROOT/deposit-data.json
 
 echo "Sending the deposits to the deposit contract"
-NODE_PATH=./web3/node_modules node ./web3/src/transfer-deposit.js \
-    --endpoint $SIGNER_EL_DATADIR/geth.ipc \
+docker run --rm \
+    -u ${BLOCKCHAIN_USER} \
+    -v ./web3:${WEB3_DIR_MOUNT_PATH} \
+    -v $SIGNER_EL_DATADIR:${DATA_DIR_MOUNT_PATH} \
+    -v $ROOT/deposit-data.json:/deposit-data.json \
+    -v ./assets:/assets \
+    -w / \
+    -e NODE_PATH=${WEB3_DIR_MOUNT_PATH}/node_modules \
+    ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} \
+    node ${WEB3_DIR_MOUNT_PATH}/src/transfer-deposit.js \
+    --endpoint ${DATA_DIR_MOUNT_PATH}/geth.ipc \
     --deposit-address $address \
-    -f $ROOT/deposit-data.json
+    -f /deposit-data.json
 echo -e "\nDone sending all the deposits to the contract"
 
 cp $CONFIG_TEMPLATE_FILE $CONFIG_FILE
@@ -68,7 +84,8 @@ docker run --rm \
     lcli eth1-genesis \
     --spec $PRESET_BASE \
     --eth1-endpoints http://${MY_NODE_IP}:$SIGNER_HTTP_PORT \
-    --testnet-dir ${CONSENSUS_DIR_MOUNT_PATH}
+    --testnet-dir ${CONSENSUS_DIR_MOUNT_PATH} \
+    2>/dev/null
 
 echo "Generated $CONSENSUS_DIR/genesis.ssz"
 
@@ -106,7 +123,8 @@ for (( node=1; node<=$NODE_COUNT; node++ )); do
         --directory ${CONSENSUS_DIR_MOUNT_PATH}/validator_keys/node$node \
         --datadir ${DATA_DIR_MOUNT_PATH} \
         --password-file /password \
-        --reuse-password
+        --reuse-password \
+        2>/dev/null
     echo -n "."
 done
 echo -e "\nDone importing the keystores"
