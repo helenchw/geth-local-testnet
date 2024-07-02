@@ -8,7 +8,13 @@ mkdir -p $CONSENSUS_DIR
 if ! test -e ./web3/node_modules; then
     echo "The package ./web3 doesn't have node modules installed yet. Installing the node modules now"
     mkdir ./web3/.npm
-    docker run --rm -u ${BLOCKCHAIN_USER} -v ./web3:${WEB3_DIR_MOUNT_PATH} -v ./web3/.npm:/.npm ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} npm --proxy="$HTTP_PROXY" --prefix ${WEB3_DIR_MOUNT_PATH} install >/dev/null 2>/dev/null
+    docker run --rm \
+        -u ${BLOCKCHAIN_USER} \
+        -v ./web3:${WEB3_DIR_MOUNT_PATH} \
+        -v ./web3/.npm:/.npm ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} \
+        npm --proxy="$HTTP_PROXY" --prefix ${WEB3_DIR_MOUNT_PATH} install \
+        >/dev/null 2>/dev/null
+    
     echo "Node modules are already installed"
 fi
 

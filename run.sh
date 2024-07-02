@@ -38,22 +38,41 @@ cleanup() {
 
     #docker ps -a
 
-    docker rm -f ${EL_BOOTNODE_CONTAINER_NAME} \
-            ${CL_BOOTNODE_CONTAINER_NAME} \
-            ${SIGNER_NODE_CONTAIN_NAME}
-
+    # terminate the nodes gracefully to avoid data loss
     for (( node=1; node<=$NODE_COUNT; node++ )); do
-        el_node_container_name $node
-        docker rm -f $container_name
+        cl_vc_container_name $node
+        docker stop $container_name
     done
     for (( node=1; node<=$NODE_COUNT; node++ )); do
         cl_bn_container_name $node
-        docker rm -f $container_name
+        docker stop $container_name
     done
     for (( node=1; node<=$NODE_COUNT; node++ )); do
-        cl_vc_container_name $node
-        docker rm -f $container_name
+        el_node_container_name $node
+        docker stop $container_name
     done
+
+    docker stop ${EL_BOOTNODE_CONTAINER_NAME} \
+            ${CL_BOOTNODE_CONTAINER_NAME} \
+            ${SIGNER_NODE_CONTAIN_NAME}
+
+    # clean up the node containers
+    for (( node=1; node<=$NODE_COUNT; node++ )); do
+        cl_vc_container_name $node
+        docker rm $container_name
+    done
+    for (( node=1; node<=$NODE_COUNT; node++ )); do
+        cl_bn_container_name $node
+        docker rm $container_name
+    done
+    for (( node=1; node<=$NODE_COUNT; node++ )); do
+        el_node_container_name $node
+        docker rm $container_name
+    done
+
+    docker rm ${EL_BOOTNODE_CONTAINER_NAME} \
+            ${CL_BOOTNODE_CONTAINER_NAME} \
+            ${SIGNER_NODE_CONTAIN_NAME}
 
     #while test -e $ROOT; do
     #    rm -rf $ROOT 2>/dev/null
@@ -117,6 +136,9 @@ if [ $start_over -eq 1 ]; then
       echo -e "\n*Failed!* in the consensus layer preparation step\n"
       exit 1
   fi
+else
+  # wait for the el nodes to be ready
+  sleep 5
 fi
 
 ./scripts/cl-bootnode.sh &
@@ -126,6 +148,6 @@ for (( node=1; node<=$NODE_COUNT; node++ )); do
     ./scripts/cl-vc-node.sh $node &
 done
 
-echo -e "\nStarting on $(date)..."
+echo -e "\nFinished starting all nodes on $(date)."
 
 wait -n

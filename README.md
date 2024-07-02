@@ -13,14 +13,18 @@ JavaScript and web3.js so that we can easily manage JSON objects and interact wi
 - Operating System: Ubuntu 22.04.2 LTS (64-bit) Server
 - Docker: v26.1.4
   
-The scripts uses packaged Docker images with the following software:
+The scripts use packaged Docker images with the following software:
 
 - Geth: v1.13.15
 - Lighthouse: v5.1.3
 - Node: v22.0
 - JQ: latest
 
-Their versions are configurable in the file `var.env`.
+Their versions are configurable in the file `vars.env`.
+
+## Preparation
+
+In `vars.env`, update `MY_NODE_IP` to the host IP address. If the host uses an HTTP proxy, also update the proxy address to `HTTP_PROXY`.
 
 ## Install Dependencies
 You can follow the follwing instructions to install the dependencies. You can omit some instructions if you prefer to install them in other ways.
