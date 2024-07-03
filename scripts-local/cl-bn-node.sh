@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source ./scripts/util.sh
+source $(dirname "${BASH_SOURCE[0]}")/util.sh
 set -u +e
 
 cleanup() {
@@ -52,7 +52,8 @@ docker run -d \
 	--http-port $http_port \
     --http-address 0.0.0.0 \
 	--disable-packet-filter \
-    --logfile $log_file 
+    --logfile $log_file \
+    --logfile-debug-level "info"
 
 if test $? -ne 0; then
     node_error "The lighthouse beacon node #$index returns an error. The last 10 lines of the log file is shown below.\n\n$(docker logs -n 10 $container_name)"

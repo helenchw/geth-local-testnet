@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source ./scripts/util.sh
+source $(dirname "${BASH_SOURCE[0]}")/util.sh
 set -eu
 
 mkdir -p $BUILD_DIR

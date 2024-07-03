@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source ./scripts/util.sh
+source $(dirname "${BASH_SOURCE[0]}")/util.sh
 set -eu
 
 mkdir -p $EXECUTION_DIR
@@ -78,3 +78,35 @@ docker run --rm \
     ${GETH_IMAGE}:${GETH_IMAGE_TAG} \
     bootnode -genkey ${DATA_DIR_MOUNT_PATH}/boot.key
 echo "Generated $EL_BOOT_KEY_FILE"
+
+# Copy the generated information to the bootnode
+read_bootnode_node_list
+
+ssh ${bootnodes[0]} mkdir -p $(dirname $EL_BOOT_KEY_FILE)
+scp -q $EL_BOOT_KEY_FILE ${bootnodes[0]}:$EL_BOOT_KEY_FILE
+
+# Copy the generated information and configurations to signer and worker nodes
+copy_info() {
+    node_ip=$1
+    src=$2
+    dst=$3
+    ssh ${node_ip} mkdir -p ${ROOT} ${dst}
+    scp -q -r ${src}/* ${node_ip}:${dst}/
+    scp -q $ROOT/password ${node_ip}:$ROOT/password
+}
+
+read_eth_node_list
+read_signer_node_list
+
+for (( node=1; node<=$NODE_COUNT; node++ )); do
+    el_data_dir $node
+    el_remote_data_dir $node
+    datadir=$el_data_dir
+    remote_datadir=$el_remote_data_dir
+    node_idx=$((node-1))
+    node_ip=${eth_nodes[$node_idx]}
+
+    copy_info $node_ip $datadir $remote_datadir
+done
+
+copy_info ${signer_nodes[0]} $SIGNER_EL_DATADIR $SIGNER_EL_DATADIR

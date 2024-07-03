@@ -1,6 +1,6 @@
 # Local Ethereum Testnet
-Run a full Ethereum network from genesis in the local machine. The network run by this projects uses [lighthouse](https://github.com/sigp/lighthouse)
-and [geth](https://github.com/ethereum/go-ethereum) as the consensus client and execution client respectively.
+Run a full Ethereum network from genesis on a local machine or a cluster of local machines (i.e., a distributed blockchain deployment).
+The network run by this projects uses [lighthouse](https://github.com/sigp/lighthouse) and [geth](https://github.com/ethereum/go-ethereum) as the consensus client and execution client respectively.
 
 We try to make the network as similar to the mainnet as possible, so that people can use this repository as the documentation on how to start
 their own network.
@@ -8,7 +8,7 @@ their own network.
 In order to do so, we try to write as little code as possible and use only bash scripts to run only well-known softwares. In addition, we use some
 JavaScript and web3.js so that we can easily manage JSON objects and interact with the Ethereum nodes.
 
-## Test Environment
+## Test Machine Environment
 
 - Operating System: Ubuntu 22.04.2 LTS (64-bit) Server
 - Docker: v26.1.4
@@ -22,17 +22,85 @@ The scripts use packaged Docker images with the following software:
 
 Their versions are configurable in the file `vars.env`.
 
-## Preparation
+## Distributed Deployment 
 
-In `vars.env`, update `MY_NODE_IP` to the host IP address. If the host uses an HTTP proxy, also update the proxy address to `HTTP_PROXY`.
+For a distributed deployment, we assume the following architecture with one bootstrap node, one node for a signer and bootnodes, and multiple nodes for a tuple of execution client, consensus client, and validator client.
+All nodes are in the same (LAN) network segment where the blockchain runs.
+All nodes should be accessible from the bootstrap node over SSH without any password (see an example of password-less SSH setup [here][passwordless-ssh]).
+The user running the script `run.sh` should be the blockchain user which has the same Linux user ID across the nodes.
+
+```
+                Operations
++-----------+    over SSH    +-----------------------------------------+
+| Bootstrap | -------------> | Execution bootnode & concensus bootnode |
++-----------+       |        +-----------------------------------------+
+                    |
+                    |        +--------+
+                    |------> | Signer |
+                    |        +--------+
+                    |
+                    |        +--------------------------------------------------------+
+                    |------> | Execution client & concensus client & validator client |
+                    |        +--------------------------------------------------------+
+                    |             ...
+                    |        +--------------------------------------------------------+
+                    \------> | Execution client & concensus client & validator client |
+                             +--------------------------------------------------------+
+```
+
+[passwordless-ssh]: https://www.redhat.com/sysadmin/passwordless-ssh
+
+
+## Update Deployment Configurations
+
+Update the configurations in `vars.env`
+
+1. Blockchain deployment mode, `DEPLOYMENT_MODE`: 0 for local and 1 for distributed
+1. Blockchain-running Linux user ID: set it to the value obtained by running `id -u`
+1. For local deployment, update `MY_NODE_IP`to the host machine LAN IP address.
+1. If the machines are behind an HTTP proxy for Internet access, set `HTTP_PROXY` to the proxy address.
+
+
+For a distributed deployment, you need to update the lists of cluster nodes in the respective files.
+
+- `nodes_list/bootnode`: IP address for the bootnodes
+- `nodes_list/signer`: IP address for the signer 
+- `nodes_list/eth_nodes`: IP address of the nodes running a tuple of execution client, consensus client, and validator client
+
 
 ## Install Dependencies
-You can follow the follwing instructions to install the dependencies. You can omit some instructions if you prefer to install them in other ways.
+You can follow the instructions below to install the dependencies on **every machine**. You can omit some instructions if you prefer to install them in other ways.
 
 ```bash
-# Install Docker 23.0
+# Install Docker 26.1.4
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh --version 26.1.4
+sudo service docker start
+```
+
+Alternatively for distributed deployment, you can run `scripts-dist/install_docker.sh` install Docker on all machines that are configured in the designated lists under the `node_lists` folder.
+The script requires `sudo` access of the machines.
+If the blockchain-running user differs from the one for installation (e.g., admin), update the `user` variable in the script to the blockchain user name and run as the installation user.
+If the machines are behind a HTTP proxy for Internet access, update the Docker daemon configurations accordingly, e.g.,
+
+1. Set 'HTTP_PROXY' and 'HTTPS_PROXY' environment variables in the Docker systemd service file, e.g., `/lib/systemd/system/docker.service`
+```bash
+[Service]
+...
+Environment="HTTP_PROXY=<proxy_server_address>"
+Environment="HTTPS_PROXY=<proxy_server_address>"
+```
+1. Reload the systemd daemon and restart the Docker systemd service
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+## Update user permission
+Add the blockchain-running user to the Docker group for using Docker on **every machine**.
+
+```bash
+sudo usermod -aG docker <blockchain_user_name>
 ```
 
 ## Run the network
@@ -41,18 +109,26 @@ git clone https://github.com/ppopth/local-testnet.git
 cd local-testnet
 ./run.sh
 ```
-By default, the number of nodes will be 4 and the number of validators will be 7. You can change them by setting the environment variables.
+By default, the number of nodes will be 4 and the number of validators will be 4. You can change them by setting the environment variables.
 ```bash
 NODE_COUNT=2 VALIDATOR_COUNT=10 ./run.sh
 ```
 Note: If you make the `NODE_COUNT` and `VALIDATOR_COUNT` too high, you probably need to change `TERMINAL_TOTAL_DIFFICULTY` and `GENESIS_DELAY` in `vars.env` as well. Please read the comment in `vars.env` for more detail.
 
-If you want to specify the paths for your own geth and lighthouse binaries, you can do so by setting `GETH_CMD` and `LIGHTHOUSE_CMD` environment variables.
-```bash
-GETH_CMD=~/repos/go-ethereum/build/bin/geth \
-LIGHTHOUSE_CMD=~/repos/lighthouse/target/release/lighthouse \
-./run.sh
-```
+### Maintenance
+
+To manually shutdown the blockchain,
+
+- For local deployment, run `./scripts-local/shutdown.sh`
+- For distributed deployment, run `./scripts-dist/shutdown.sh`
+
+To manually clean the blockchain directories,
+
+- For local deployment, run `./scripts-local/reset.sh`
+- For distributed deployment, run `./scripts-dist/reset.sh`
+
+Note that the scripts **does not support automated switch between deployment modes**.
+If you want to switch between modes, either use different blockchain directories for different modes or manually clean the blockchain directories.
 
 ## How the network works
 When you run `./run.sh`, the followings happen in order.
@@ -171,11 +247,28 @@ After the transaction:
 
 ## Changes w.r.t. the upstream
 
-- Only initialize the network when the data directory `data/` does not exist
+- Support both local and distributed deployment
+
+### Operational
+- Only initialize the network when the blockchain directory does not exist
+- Switch to use Docker images for all dependent software (Geth, Lighthouse, jq, node, npm)
+- Add different operation configurations in `vars.env`
+  - `DEPLOYMENT_MODE`
+     - `0`: local
+     - `1`: for distributed
+  - `FORCE_START_OVER`
+     - `0`: if all blockchain directories exist, reuse them. Useful for restarting an existing blockchain.
+     - `1`: always reset the blockchain directories and start a new blockchain. Useful for testing.
+  - `NO_SHUTDOWN`
+     - `0`: wait until a TERM signal and shutdown the blockchain
+     - `1`: exit the script once everything is up without any wait or shutdown
+
+### Configurations
 - Use a separate port number for TCP for Lighthouse consensus nodes
 - Expose the HTTP API endpoint for Geth execution nodes (7600 + index)
 - Specify `--miner.etherbase` for the Geth signer node
-- Add some time wait for deposit contract deployment to complete
-- Reduce the validator count to 7
-- Change to use Docker images for all dependent software (Geth, Lighthouse, jq, node, npm)
 - Use `--logfile` flags for Geth and Lighthouse for continued logging across restarts
+- Reduce the default validator count to 4
+
+### Runtime
+- Add some waiting time for deposit contract deployment to complete

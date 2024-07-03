@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source ./scripts/util.sh
+source $(dirname "${BASH_SOURCE[0]}")/util.sh
 set -u +e
 
 cleanup() {
@@ -9,8 +9,8 @@ cleanup() {
 
 trap cleanup EXIT
 
-datadir=$1
-boot_enode=$2
+datadir=$SIGNER_EL_DATADIR
+boot_enode=$1
 
 address=$(cat $datadir/address)
 log_file=$datadir/geth.log
