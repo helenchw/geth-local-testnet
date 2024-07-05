@@ -5,22 +5,35 @@ set -eu
 
 mkdir -p $CONSENSUS_DIR
 
+# install the nodejs web3 modules
+cp -r ./web3 $ROOT/
+mkdir $ROOT/web3/.npm
+if [ -z $HTTP_PROXY ]; then
+    docker run --rm \
+        -u ${BLOCKCHAIN_USER} \
+        -v $ROOT/web3:${WEB3_DIR_MOUNT_PATH} \
+        -v $ROOT/web3/.npm:/.npm ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} \
+        npm --prefix ${WEB3_DIR_MOUNT_PATH} install \
+        #>/dev/null 2>/dev/null
+else
+    docker run --rm \
+        -u ${BLOCKCHAIN_USER} \
+        -v $ROOT/web3:${WEB3_DIR_MOUNT_PATH} \
+        -v $ROOT/web3/.npm:/.npm ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} \
+        npm --proxy="$HTTP_PROXY" --prefix ${WEB3_DIR_MOUNT_PATH} install \
+        >/dev/null 2>/dev/null
+fi
+
 read_eth_node_list
 read_signer_node_list
 read_bootnode_node_list
 
 # transfer the web3 and assets directories to the signer node for PoS contract deployment
-ssh ${signer_nodes[0]} mkdir -p $ROOT/web3 $ROOT/web3/.npm $ROOT/assets ${SIGNER_EL_DATADIR}
-scp -r -q ./web3/* ${signer_nodes[0]}:$ROOT/web3/
+ssh ${signer_nodes[0]} mkdir -p $ROOT/web3 $ROOT/assets ${SIGNER_EL_DATADIR}
+scp -r -q $ROOT/web3/* ${signer_nodes[0]}:$ROOT/web3/
+scp -r -q $ROOT/web3/.npm ${signer_nodes[0]}:$ROOT/web3/
 scp -r -q ./assets/* ${signer_nodes[0]}:$ROOT/assets/
 
-ssh ${signer_nodes[0]} \
-    docker run --rm \
-    -u ${BLOCKCHAIN_USER} \
-    -v $ROOT/web3:${WEB3_DIR_MOUNT_PATH} \
-    -v $ROOT/web3/.npm:/.npm ${NODE_CONTAINER_IMAGE}:${NODE_CONTAINER_IMAGE_TAG} \
-    npm --proxy="$HTTP_PROXY" --prefix ${WEB3_DIR_MOUNT_PATH} install \
-    >/dev/null 2>/dev/null
 
 # wait for the signer node to be ready
 sleep 2
@@ -54,7 +67,7 @@ echo $block_number > $CONSENSUS_DIR/deploy_block.txt
 mkdir -p $CONSENSUS_DIR/validator_keys
 docker run --rm \
     -u ${BLOCKCHAIN_USER} \
-    -v ./web3:${WEB3_DIR_MOUNT_PATH} \
+    -v $ROOT/web3:${WEB3_DIR_MOUNT_PATH} \
     -v $CONSENSUS_DIR:$CONSENSUS_DIR_MOUNT_PATH \
     -v $BUILD_DIR:${BUILD_DIR_MOUNT_PATH} \
     -e NODE_PATH=${WEB3_DIR_MOUNT_PATH}/node_modules \
