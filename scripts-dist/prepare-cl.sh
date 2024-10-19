@@ -6,8 +6,9 @@ set -eu
 mkdir -p $CONSENSUS_DIR
 
 # install the nodejs web3 modules
+rm -rf $ROOT/web3/
 cp -r ./web3 $ROOT/
-mkdir $ROOT/web3/.npm
+mkdir -p $ROOT/web3/.npm
 if [ -z $HTTP_PROXY ]; then
     docker run --rm \
         -u ${BLOCKCHAIN_USER} \
@@ -142,40 +143,12 @@ bootnode_enr=$(cat $CL_BOOTNODE_DIR/enr.dat)
 echo "- $bootnode_enr" > $CONSENSUS_DIR/boot_enr.yaml
 echo "Generated $CONSENSUS_DIR/boot_enr.yaml"
 
-echo "Importing the keystores of the validators to the lighthouse data directories"
-for (( node=1; node<=$NODE_COUNT; node++ )); do
-    cl_data_dir $node
-    el_data_dir $node
-    el_remote_data_dir
-
-    mkdir -p $cl_data_dir
-
-    node_idx=$((node-1))
-    scp -q ${eth_nodes[$node_idx]}:$el_remote_data_dir/geth/jwtsecret $cl_data_dir
-
-    docker run --rm \
-        -u ${BLOCKCHAIN_USER} \
-        -v $ROOT/password:/password \
-        -v $CONSENSUS_DIR:${CONSENSUS_DIR_MOUNT_PATH} \
-        -v $cl_data_dir:${DATA_DIR_MOUNT_PATH} \
-        ${LIGHTHOUSE_IMAGE}:${LIGHTHOUSE_IMAGE_TAG} \
-        $LIGHTHOUSE_CMD \
-        account validator import \
-        --testnet-dir ${CONSENSUS_DIR_MOUNT_PATH} \
-        --directory ${CONSENSUS_DIR_MOUNT_PATH}/validator_keys/node$node \
-        --datadir ${DATA_DIR_MOUNT_PATH} \
-        --password-file /password \
-        --reuse-password \
-        2>/dev/null
-    echo -n "."
-done
-echo -e "\nDone importing the keystores"
-
 # Copy the testnet information to the node folders
 # Ref: https://github.com/sigp/lighthouse/blob/v5.1.3/common/eth2_network_config/src/lib.rs#L32
 
 duplicate_testnet_info() {
     dst=$1
+    mkdir -p $dst
     cp ${CONSENSUS_DIR}/genesis.ssz \
         ${CONSENSUS_DIR}/deploy_block.txt \
         ${CONSENSUS_DIR}/boot_enr.yaml \
@@ -183,13 +156,20 @@ duplicate_testnet_info() {
         $dst/
 }
 
+duplicate_content() {
+    src=$1
+    dst=$2
+    mkdir -p $dst
+    cp $src/* $dst/
+}
+
 for (( node=1; node<=$NODE_COUNT; node++ )); do
     cl_data_dir $node
     duplicate_testnet_info $cl_data_dir
+    duplicate_content ${CONSENSUS_DIR}/validator_keys/node${node}/ $cl_data_dir/validator_keys/
 done
 
 duplicate_testnet_info $CL_BOOTNODE_DIR
-
 
 # Copy the information to the concensus client nodes
 copy_info() {
@@ -209,4 +189,31 @@ for (( node=1; node<=$NODE_COUNT; node++ )); do
 done
 
 copy_info ${bootnodes[0]} ${CL_BOOTNODE_DIR} ${CL_BOOTNODE_DIR}
+
+
+echo "Importing the keystores of the validators to the lighthouse data directories"
+for (( node=1; node<=$NODE_COUNT; node++ )); do
+    cl_remote_data_dir $node
+    el_remote_data_dir
+
+    node_idx=$((node-1))
+    ssh ${eth_nodes[$node_idx]} cp ${el_remote_data_dir}/geth/jwtsecret $cl_remote_data_dir
+
+    ssh ${eth_nodes[$node_idx]} docker run --rm \
+        -u ${BLOCKCHAIN_USER} \
+        -v $ROOT/password:/password \
+        -v $cl_remote_data_dir:${CONSENSUS_DIR_MOUNT_PATH} \
+        -v $cl_remote_data_dir:${DATA_DIR_MOUNT_PATH} \
+        ${LIGHTHOUSE_IMAGE}:${LIGHTHOUSE_IMAGE_TAG} \
+        $LIGHTHOUSE_CMD \
+        account validator import \
+        --testnet-dir ${CONSENSUS_DIR_MOUNT_PATH} \
+        --directory ${CONSENSUS_DIR_MOUNT_PATH}/validator_keys \
+        --datadir ${DATA_DIR_MOUNT_PATH} \
+        --password-file /password \
+        --reuse-password \
+        >/dev/null
+    echo -n "."
+done
+echo -e "\nDone importing the keystores"
 
